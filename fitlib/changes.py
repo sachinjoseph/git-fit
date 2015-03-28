@@ -66,7 +66,7 @@ def printStatus(fitTrackedData, pathArgs=None, legend=True, showall=False, merge
     untrackedItems = untrackedItems - offenders
     unchangedItems = unchangedItems - offenders
 
-    downstream = getDownstreamItems(fitTrackedData, fitItems if paths == None else paths, stats)
+    downstream, skippedFiles = getDownstreamItems(fitTrackedData, fitItems if paths == None else paths, stats)
     upstream = getUpstreamItems()
 
     modified,added,removed,untracked,unchanged = [],[],[],[],[]
@@ -134,11 +134,12 @@ def printStatus(fitTrackedData, pathArgs=None, legend=True, showall=False, merge
     if len(upstream) > 0:
         print ' * %s object(s) may need to be uploaded. Run \'git-fit put\' -s for details.'%len(upstream)
     if len(downstream) > 0:
+        print ' * %d objects(s) will be skipped (based on extension)'%len(skippedFiles)
         print ' * %d object(s) need to be downloaded. Run \'git-fit get\' -s for details.'%len(downstream)
     if len(stubs) > 0:
         print ' * %d object(s) exist in the working tree as empty zero-byte stubs.'%len(stubs)
         print '   These objects are locally cached, so running \'git-fit restore\' will replace'
-        print '   them with their actual contents.'
+        print '   them with their cached contents (may not be up to date with remote storage).'
 
 
 @gitDirOperation(repoDir)
@@ -163,7 +164,7 @@ def getChangedItems(fitTrackedData, trackedItems=None, paths=None, pathArgs=None
 
     if paths != None:
         if len(paths) == 0:
-            return ({}, set(), set(), set(), set(), {})
+            return ({}, set(), set(), set(), set(), {}, {}) # return all 7 as empty
         expectedItems &= paths
         trackedItems &= paths
 

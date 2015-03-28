@@ -7,7 +7,7 @@ class FitNode:
         self.parentPath = path
         self.children = nodes
 
-# Returns a tree constructred from given list of paths
+# Returns a tree constructed from given list of paths
 def getPathTree(paths):
     tree = {}
     for p in paths:

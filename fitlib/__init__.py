@@ -9,15 +9,17 @@ from threading import Thread as thread
 from sys import stdout
 from gzip import GzipFile as gz
 from StringIO import StringIO
+from skipExtensions import downstreamSkipExtensionsCaseInsensitive, downstreamSkipExtensionsCaseSensitive
 
 # Below two lines prevents Python raising an exception
 # when piping output to commands like less, head that
 # can prematurely terminate the pipe. Disabling this in
 # windows since windows does not have SIGPIPE
-# https://mail.python.org/pipermail/python-list/2004-June/273297.html
+# https://docs.python.org/2/library/signal.html
 if platform.system() != "Windows":
     import signal
     signal.signal(signal.SIGPIPE, signal.SIG_DFL) 
+
 
 # Get the repo root directory if inside one, otherwise exit
 _p = popen('git rev-parse --show-toplevel'.split(), stdout=PIPE)
@@ -55,7 +57,7 @@ zeroByteSha1 = 'e69de29bb2d1d6434b8b29ae775ad8c2e48c5391'
 def gitDirOperation(arg):
     # "arg" will be either a callable, or a string, depending on how the decorator is used.
     # If the decorator is used as @gitDirOperation, it is used in the basic way and is NOT
-    # parameteried. It is parameterized if called with a string, such as
+    # parameterized. It is parameterized if called with a string, such as
     # @gitDirOperatio('path/gitFolder'). How we get the git directory depends on which
     # form of the decorator is used.
 
@@ -200,12 +202,17 @@ def updateStats(items, filePath=statFile):
     oldStats = readStatFile(filePath=filePath)
     newStats = {}
     stubs = []
+    skippedFiles = []
     for i in items:
         stats = fitStats(i)
         if stats[0] > 0:
             newStats[i] = stats
         else:
-            stubs.append(i)
+            # compare the extension with the skipExtensions list, and add to stubs only if required.
+            if path.splitext(i)[-1].lower() in map(str.lower, downstreamSkipExtensionsCaseInsensitive) or path.splitext(i)[-1] in downstreamSkipExtensionsCaseSensitive:
+                skippedFiles.append(i)
+            else:
+                stubs.append(i)
 
     # An item is "touched" if its cached stats don't match its new stats.
     # "Touched" is a necessary but not sufficient condition for an item to

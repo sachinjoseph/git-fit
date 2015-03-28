@@ -3,11 +3,12 @@ from . import repoDir, fitDir, objectsDir, tempDir, workingDir
 from paths import getValidFitPaths
 import cache
 from subprocess import Popen as popen, PIPE
-from os.path import dirname, basename, exists, join as joinpath, getsize
+from os.path import dirname, basename, splitext, exists, join as joinpath, getsize
 from os import walk, makedirs, remove, close as osclose, mkdir, listdir, stat
 from shutil import copyfile, move
 from sys import stdout
 from tempfile import mkstemp
+from skipExtensions import downstreamSkipExtensionsCaseInsensitive, downstreamSkipExtensionsCaseSensitive
 
 def getDataStore(progressCallback):
     moduleName = popen('git config fit.datastore.moduleName'.split(), stdout=PIPE).communicate()[0].strip()
@@ -33,7 +34,9 @@ def getUpstreamItems():
 
 def getDownstreamItems(fitTrackedData, paths, stats):
     cached = cache.find((fitTrackedData[p][0] for p in paths), update=False)
-    return [p for p in paths if not (p in stats or fitTrackedData[p][0] in cached)]
+    skippedFiles = []
+    downstreamItems = [p for p in paths if not (p in stats or fitTrackedData[p][0] in cached or True if (splitext(p)[-1] not in downstreamSkipExtensionsCaseSensitive) else True if (splitext(p)[-1] not in map(str.lower, downstreamSkipExtensionsCaseInsensitive)) else False, skippedFiles.append(p))]
+    return downstreamItems, skippedFiles
 
 class _ProgressPrinter:
     def __init__(self):
@@ -95,6 +98,7 @@ def get(fitTrackedData, pathArgs=None, summary=False, showlist=False, quiet=Fals
 
     needed = []   # not in working tree nor in cache, must be downloaded
     touched = {}
+    skippedFiles = [] # these files will not be transferred downstream, because they are configured to be skipped based on extension
 
     cached = cache.find(fitTrackedData[f][0] for f in validPaths)
     for filePath in validPaths:
@@ -107,24 +111,49 @@ def get(fitTrackedData, pathArgs=None, summary=False, showlist=False, quiet=Fals
                 copyfile(objPath, filePath)
                 touched[filePath] = objHash
             else:
-                needed.append((filePath, objHash, size))
+                if splitext(filePath)[-1].lower() in map(str.lower, downstreamSkipExtensionsCaseInsensitive) or splitext(filePath)[-1] in downstreamSkipExtensionsCaseSensitive:
+                    skippedFiles.append((filePath, objHash, size))
+                else:
+                    needed.append((filePath, objHash, size))
 
     totalSize = sum([size for f,h,size in needed])
+    totalSkippedSize = sum([size for f,h,size in skippedFiles])
 
-    if len(needed) == 0:
+    if len(needed) == 0 and len(skippedFiles) == 0:
         if not quiet:
             print 'No tranfers needed! %s items retrieved from cache and the rest already exist.'%len(touched)
+            print '%s downstream transfers skipped based on extension.'%len(skippedFiles)
     elif showlist:
-        print
-        for filePath,h,size in sorted(needed):
-            print '  %6.2fMB  %s'%(size/1048576, filePath)
-        print '\nThe above objects can be tranferred (total transfer size: %.2fMB).'%(totalSize/1048576)
-        print 'You may run git-fit get to start the transfer.'
+        # either needed or skippedFiles or both are empty if program control reaches here
+        if len(skippedFiles) > 0:
+            print
+            for filePath,h,size in sorted(skippedFiles):
+                print '  %6.2fMB  %s (skipped)'%(size/1048576, filePath)
+            
+            print '\nThe above objects will be skipped (based on extension).'
+            print 'Total tranfer size (skipped): %.2fMB'%(totalSkippedSize/1048576)
+        
+        if len(needed) > 0:
+            print
+            for filePath,h,size in sorted(needed):
+                print '  %6.2fMB  %s'%(size/1048576, filePath)
+                
+            print '\nThe above objects can be tranferred (total transfer size: %.2fMB).'%(totalSize/1048576)
+            print 'You may run git-fit get to start the transfer.'
+            
     elif summary:
         print len(validPaths), 'items are being tracked'
-        print len(needed), 'of the tracked items are not cached locally (need to be downloaded)'
-        print '%.2fMB in total can be downloaded'%(totalSize/1048576)
-        print 'Run \'git-fit get -l\' to list these items.'
+        if (len(needed) + len(skippedFiles)) > 0:
+            print (len(needed) + len(skippedFiles)), 'of the tracked items are not cached locally (%.2fMB)'%((totalSkippedSize + totalSize) / 1048576.0)
+            print
+            if len(skippedFiles) > 0:
+                print '%s downstream transfers will be skipped (based on extension, %.2fMB).'%(len(skippedFiles), totalSkippedSize/1048576.0)
+            if len(needed) > 0:
+                print len(needed), 'of the tracked items need to be downloaded (%.2fMB)'%(totalSize/1048576.0)
+            print 'Run \'git-fit get -l\' to list these items.'
+            
+        if len(needed) == 0:
+                print '\nNo transfers required.'
     else:
         successes = []
         _transfer(_get, needed, totalSize, fitTrackedData, successes, quiet)
@@ -137,8 +166,12 @@ def get(fitTrackedData, pathArgs=None, summary=False, showlist=False, quiet=Fals
 def _get(items, store, pp, successes, failures):
     if not exists(tempDir):
         mkdir(tempDir)
-
+    
+    skippedFiles = []
     for filePath,objHash,size in items:
+        if splitext(filePath)[-1].lower() in map(str.lower, downstreamSkipExtensionsCaseInsensitive) or splitext(filePath)[-1] in downstreamSkipExtensionsCaseSensitive:
+            skippedFiles.append(filePath)
+            continue
         pp.newItem(filePath, size)
         
         # Copy download to temp file first, and then to actual object location
