@@ -1,7 +1,5 @@
+## INTRODUCTION
 
-
-
-INTRODUCTION
 
 git-fit helps your git repo stay fit and slim and keep git commands running fast. It lets you
 offload bloat (binary files) away from the repo and into some external location, committing
@@ -10,24 +8,24 @@ git through hooks, fit takes care of most things automatically behind the scenes
 that, there are only the below few commands you need to know in order to stay fit. ALL of
 these commands operate only on the HEAD revision that the repository currently points to. The
 commands, with the full set of options, are:
-
-git-fit         [--legend] [--all] [<PATH>...]
+<pre>
+git-fit         [--legend] [--all] [&lt;PATH&gt;...]
     -l, --legend    Print a legend showing what status symbols mean.
     -a, --all       List even those items whose status is unchanged.
-    
+</pre>  
 Shows the fit state of the working tree and any detected problems.
-
-git-fit save    [<PATH>...]
-
+<pre>
+git-fit save    [&lt;PATH&gt;...]
+</pre>
 Updates .fit file with current changes to fit items in the working tree. The .fit file will
 also be git-added (which you can then commit along with any other non-fit changes). After
 running this command, any items that were shown as modified, added, removed, or untracked
 (*, +, -, ~) by the status output of git-fit will no longer be shown as such, since those
 changes will have been saved in the .fit file. However, any potential commit-aborting items
 will continue to be shown in the status.
-
-git-fit restore [<PATH>...]
-
+<pre>
+git-fit restore [&lt;PATH&gt;...]
+</pre>
 Discards any changes to fit items in the working tree. (THIS CANNOT BE UNDONE). Notice that
 this operation is the opposite of the save operation. This will IRREVERSIBLY discard all
 uncommitted changes to your fit-tracked items, bringing your working tree to a pristine
@@ -36,19 +34,19 @@ with caution). In other words, whatever modified, added, or removed (*, +, -) it
 the git-fit status output before running restore, you will no longer see after running
 restore. Items marked to be untracked from fit (~) and any potential commit-aborting items will
 continue to be shown and cannot be "restored".
-
-git-fit get     [--summary] [--list] [--quiet] [<PATH>...]
+<pre>
+git-fit get     [--summary] [--list] [--quiet] [&lt;PATH&gt;...]
     -s, --summary   Do not transfer. Instead, show a summary of what would be transferred.
     -l, --list      Do not transfer. Instead, list all the items that would be transferred.
-    -q, -quiet      Supress transfer progress output.
-
+    -q, -quiet      Suppress transfer progress output.
+</pre>
 Copies objects FROM remote location and/or populates working tree. Until this is done, any
 action in your project that requires the actual contents of these items will not work as
 expected. Only items that are not already in the working tree or local fit cache will be
 downloaded.
-
+<pre>
 git-fit put     [--summary] [--list] [--quiet]
-
+</pre>
 Copies objects TO remote location from local cache. Until this is done, people who are using
 your commits will not have access to these items. If an item already exist in the external
 store due to a previous upload (either by you or someone else), the item will be skipped (but
@@ -60,17 +58,17 @@ the HEAD must be uploaded to fulfill the commit.
 
 
 
-OTHER TOOLS
-
+## OTHER TOOLS
 There are other tools that are designed to solve the same problem. The following tools have
 varying features/functionalities and all use git's clean and smudge filters to seamlessly
 integrate with git commands.
 
+<pre>
 git-exile
 git-bin
 git-fat
 git-media
-
+</pre>
 However, git's clean/smudge filters force each filtered item to be fully read in from stdin
 and the transformations to be written to stdout. The side-effect is that these filters end up
 causing some basic and frequent git commands (such as status) to become really slow,
@@ -88,8 +86,7 @@ differences with the design goals of git-fit.)
 
 
 
-HOW IT WORKS
-
+## HOW IT WORKS
 Unlike the tools above, the only way git-fit transparently integrates with the git system is
 through hooks (and not through clean/smudge filters). So, unless it is invoked through any of
 the five available commands, fit will just stay out of your way until commit or checkout. The
@@ -97,7 +94,7 @@ trade-off resulting from this alternative setup is that that commands like git s
 diff will not be directly aware of the true state of fit-managed items. git-fit sacrifices
 this convenience in favor of speed and efficiency.
 
-What fit WILL handle
+### What fit WILL handle
 (1) Items you've TOLD fit to track.
 See "Configuration" below. Fit will detect changes in these items and offload them to your
 specified external location.
@@ -108,7 +105,7 @@ including that binary file will cause that commit to be aborted. Fit must be tol
 ignore these items or track them. This enforcement is a feature intended to prevent accidental
 commits of items that should actually be handled by fit.
 
-What fit WILL NOT handle
+### What fit WILL NOT handle
 (1) Items you've TOLD fit to ignore.
 See "Configuration" below. Fit will just pretend these items are not there.
 
@@ -123,8 +120,7 @@ from git by doing something like "git remove".
 
 
 
-
-CONFIGURATION
+## CONFIGURATION
 Initial one-time setup
 Initial set-up to enable git-fit on your repo requires two steps:
 (* NOTE: do not run "git fit" if you are already using any of the following hooks for your own
@@ -134,44 +130,47 @@ more details below regarding this.)
     (1) Add the git-fit root directory to your PATH
     (2) Run "git fit" inside your repo
 
-Running "git-fit" by iteself normally just shows the status, but the first time it is run on a
+Running "git-fit" by itself normally just shows the status, but the first time it is run on a
 newly cloned repo, it also initializes the repo for fit use.
 
 
-Instructing fit with include/exclude rules
+### Instructing fit with include/exclude rules
 Once initial setup is complete, you need to sprinkle .gitattributes and .gitignore files
 around your working tree (or update them), depending on which files you need to include or
 exclude from git-fit. See the gitignore help page to learn how to specify patterns to match
 and select files (.gitattributes files use the same pattern syntax as .gitignore files). Here
 is a simple, common use-case example, which will include all PNG images in the directory and
 its sub-directories to be handled by git-fit:
-
+<pre>
 *.png fit
-
+</pre>
 To explicitly exclude files from fit, you would have in .gitattributes something like the
 following (notice the minus sign prefixed to the "fit" attribute):
-
+<pre>
 *.jar -fit
-
+</pre>
 This would allow all the jar files in the directory to be ignored by fit and committed through
 the normal git commit flow if desired, and fit will not complain about these items even though
 they are binary.
 
 -----------
-* Note about existing git hooks in your repo:
+### Note about existing git hooks in your repo <br />
 If you already have any of the these hooks doing other things, setup might be a little less
 straightforward. Someone with knowledge about the existing hooks in your repo should follow
 the direction below to add fit into your existing hooks. For all the git commands shown
 below, NEVER RUN THEM DIRECTLY yourself. They are only meant to be used as hooks.
 
-The PRE-COMMIT hook:
-Your hook executable will need to run: "git fit --pre-commit"
+#### The PRE-COMMIT hook <br />
+Your hook executable will need to run:
+<pre>git fit --pre-commit</pre>
 
-The POST-COMMIT hook:
-Your hook executable will need to run: "git fit --post-commit"
+#### The POST-COMMIT hook <br />
+Your hook executable will need to run:
+<pre>git fit --post-commit</pre>
 
-The POST-CHECKOUT hook:
-Your hook executable will need to run: "git fit --post-checkout <ARG1> <ARG2> <ARG3>".
+#### The POST-CHECKOUT hook <br />
+Your hook executable will need to run:
+<pre>git fit --post-checkout &lt;ARG1&gt; &lt;ARG2&gt; &lt;ARG3&gt;</pre>
 The ARGs are positional command line arguments that git passes to the hook executable and
 git-fit uses them. If your hook executable is simply a shell script, the ARGs can be specified
-as $1 $2 $3.
+as $1  $2 $3.
