@@ -156,7 +156,7 @@ def get(fitTrackedData, pathArgs=None, summary=False, showlist=False, quiet=Fals
                 print '\nNo transfers required.'
     else:
         successes = []
-        _transfer(_get, needed, totalSize, fitTrackedData, successes, quiet)
+        _transfer(_get, needed + skippedFiles, totalSize + totalSkippedSize, fitTrackedData, successes, quiet)
 
         for filePath, objHash, size in successes:
             touched[filePath] = objHash
@@ -170,6 +170,8 @@ def _get(items, store, pp, successes, failures):
     skippedFiles = []
     for filePath,objHash,size in items:
         if splitext(filePath)[-1].lower() in map(str.lower, downstreamSkipExtensionsCaseInsensitive) or splitext(filePath)[-1] in downstreamSkipExtensionsCaseSensitive:
+            pp.newItem(filePath, size)
+            pp.updateProgress(size, size, custom_item_string='Skipped')
             skippedFiles.append(filePath)
             continue
         pp.newItem(filePath, size)
